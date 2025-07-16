@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Souls Incremental with Soul Animation</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js" crossorigin="anonymous"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card {
+      background: #1e1e1e;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 10px;
+      width: 300px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    button {
+      padding: 10px;
+      background: #6200ee;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 48%;
+      margin: 1%;
+    }
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+    h1 {
+      color: #bb86fc;
+    }
+    input {
+      padding: 6px;
+      border-radius: 4px;
+      border: none;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+    #soulAnim {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      margin-left: 10px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, red, orange, yellow, green, blue, violet);
+      background-size: 400% 400%;
+      animation: soulGlow 4s linear infinite;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+      vertical-align: middle;
+    }
+    @keyframes soulGlow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Souls Incremental</h1>
+
+  <div class="card">
+    <p>Souls: <span id="souls">0</span><div id="soulAnim" title="Soul Animation"></div></p>
+    <p>SPS: <span id="sps">0</span></p>
+    <p>Multiplier: <span id="multiplier">1</span>x</p>
+  </div>
+
+  <div class="card">
+    <h2>Titles</h2>
+    <p>Level: <span id="titleLevel">0</span></p>
+    <p>Cost: <span id="titleCost">100</span></p>
+    <button id="buyTitle">Buy</button>
+    <button id="buyMaxTitle">Buy Max</button>
+  </div>
+
+  <div class="card">
+    <h2>Rebirths</h2>
+    <p>Count: <span id="rebirths">0</span></p>
+    <p>Cost: <span id="rebirthCost">1T</span></p>
+    <button id="buyRebirth">Rebirth</button>
+    <button id="buyMaxRebirth">Buy Max</button>
+  </div>
+
+  <div class="card">
+    <h2>Reincarnations</h2>
+    <p>Count: <span id="reincarnations">0</span></p>
+    <p>Cost: <span id="reincCost">1Qa</span></p>
+    <button id="buyReinc">Reincarnate</button>
+    <button id="buyMaxReinc">Buy Max</button>
+  </div>
+
+  <div class="card">
+    <h2>Upgrades</h2>
+    <p>Speed: <span id="speedLevel">0</span></p>
+    <p>Cost: <span id="speedCost">1M</span></p>
+    <button id="buySpeed">+10% Speed</button>
+    <button id="buyMaxSpeed">Buy Max</button>
+    <hr />
+    <p>Power: <span id="powerLevel">0</span></p>
+    <p>Cost: <span id="powerCost">10M</span></p>
+    <button id="buyPower">+20% Power</button>
+    <button id="buyMaxPower">Buy Max</button>
+    <hr />
+    <p>Quantum Core: <span id="coreLevel">0</span></p>
+    <p>Cost: <span id="coreCost">1B</span></p>
+    <button id="buyCore">×5 SPS</button>
+    <button id="buyMaxCore">Buy Max</button>
+  </div>
+
+  <div id="adminPanel" class="card">
+    <h2>Admin Access</h2>
+    <input id="adminInput" placeholder="Enter code or command" />
+    <button id="runCmd">Run</button>
+  </div>
+
+  <script>
+    const SUF=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","De","Ud","Dd","Td","Qd","Qn","Sxd","Spd","Ocd","Nod","Vg","UVg","DVg","TVg","QtV","QnV","SeV","SpG","OVG","NVG","TGN","UTG","DTG","TsTG","QtTG","QnTG","SsTG","SpTG","OcTG","NoTG","∞"];
+    function fmt(n){
+      if(n.lt(1000))return n.toFixed(0);
+      let t=Math.floor(n.log(1000));
+      let suf=SUF[t]||`e${n.toExponential(2)}`;
+      return n.div(Decimal.pow(1000,t)).toFixed(2)+suf;
+    }
+    const MAX=new Decimal("1e999999999999999999999999999999999999999999999999999999999");
+    const saveKey="souls_v∞";
+    let st={souls:new Decimal(0),base:new Decimal(2),title:0,reb:0,reinc:0,speed:0,power:0,core:0};
+    let specialBoost=new Decimal(1);
+    let admin=false;
+    const cTitle=l=>Decimal.pow(2.5,l).mul(100);
+    const cReb=r=>Decimal.pow(10,r).mul(1e15);
+    const cReinc=r=>Decimal.pow(25,r).mul(1e24);
+    const cSpeed=l=>Decimal.pow(5,l).mul(1e6);
+    const cPower=l=>Decimal.pow(7,l).mul(1e7);
+    const cCore=l=>Decimal.pow(9,l).mul(1e9);
+    const mult=()=>Decimal.pow(2,st.title).mul(Decimal.pow(999,st.reb)).mul(Decimal.pow(3000,st.reinc)).mul(specialBoost);
+    const sps=()=>st.base.mul(Decimal.pow(1.1,st.power)).mul(Decimal.pow(5,st.core)).mul(mult());
+    const tickMs=()=>1000/Decimal.pow(1.1,st.speed).toNumber();
+    const $=id=>document.getElementById(id);
+
+    function draw(){
+      $("souls").textContent=fmt(st.souls);
+      $("sps").textContent=fmt(sps());
+      $("multiplier").textContent=fmt(mult());
+      $("titleLevel").textContent=st.title;
+      $("titleCost").textContent=fmt(cTitle(st.title));
+      $("rebirths").textContent=st.reb;
+      $("rebirthCost").textContent=fmt(cReb(st.reb));
+      $("reincarnations").textContent=st.reinc;
+      $("reincCost").textContent=fmt(cReinc(st.reinc));
+      $("speedLevel").textContent=st.speed;
+      $("speedCost").textContent=fmt(cSpeed(st.speed));
+      $("powerLevel").textContent=st.power;
+      $("powerCost").textContent=fmt(cPower(st.power));
+      $("coreLevel").textContent=st.core;
+      $("coreCost").textContent=fmt(cCore(st.core));
+    }
+
+    function save(){
+      const d={};
+      for(let k in st)d[k]=st[k].toString();
+      localStorage.setItem(saveKey,JSON.stringify(d));
+    }
+
+    function load(){
+      const d=localStorage.getItem(saveKey);
+      if(d){
+        try{
+          const p=JSON.parse(d);
+          for(let k in p) st[k]=new Decimal(p[k]);
+        }catch(e){console.error("bad save");}
+      }
+    }
+
+    function loop(){
+      st.souls=Decimal.min(MAX,st.souls.plus(sps()));
+      draw();
+      save();
+      setTimeout(loop,tickMs());
+    }
+
+    function buyMax(costFunc, key){
+      while(st.souls.gte(costFunc(st[key]))){
+        st.souls = st.souls.minus(costFunc(st[key]));
+        st[key]++;
+      }
+      draw();
+    }
+
+    $("buyTitle").onclick=()=>{ if(st.souls.gte(cTitle(st.title))){ st.souls=st.souls.minus(cTitle(st.title)); st.title++; draw(); }};
+    $("buyMaxTitle").onclick=()=>buyMax(cTitle,"title");
+    $("buyRebirth").onclick=()=>{ if(st.souls.gte(cReb(st.reb))){ st.souls=new Decimal(0); st.reb++; st.title=0; draw(); }};
+    $("buyMaxRebirth").onclick=()=>{ while(st.souls.gte(cReb(st.reb))){ st.souls=new Decimal(0); st.reb++; st.title=0; } draw(); };
+    $("buyReinc").onclick=()=>{ if(st.souls.gte(cReinc(st.reinc))){ st.souls=new Decimal(0); st.reinc++; st.reb=0; st.title=0; draw(); }};
+    $("buyMaxReinc").onclick=()=>{ while(st.souls.gte(cReinc(st.reinc))){ st.souls=new Decimal(0); st.reinc++; st.reb=0; st.title=0; } draw(); };
+    $("buySpeed").onclick=()=>{ if(st.souls.gte(cSpeed(st.speed))){ st.souls=st.souls.minus(cSpeed(st.speed)); st.speed++; draw(); }};
+    $("buyMaxSpeed").onclick=()=>buyMax(cSpeed,"speed");
+    $("buyPower").onclick=()=>{ if(st.souls.gte(cPower(st.power))){ st.souls=st.souls.minus(cPower(st.power)); st.power++; draw(); }};
+    $("buyMaxPower").onclick=()=>buyMax(cPower,"power");
+    $("buyCore").onclick=()=>{ if(st.souls.gte(cCore(st.core))){ st.souls=st.souls.minus(cCore(st.core)); st.core++; draw(); }};
+    $("buyMaxCore").onclick=()=>buyMax(cCore,"core");
+
+    const SECRET="ip-89-admin";
+    function runCmd(){
+      const cmd=$("adminInput").value.trim();
+      if(!admin){
+        if(cmd===SECRET){
+          admin=true;
+          alert("Admin mode enabled");
+        } else {
+          alert("Invalid code");
+        }
+      } else {
+        const parts=cmd.split(" ");
+        if(parts[0]==="mult"&&parts[1]){
+          specialBoost=new Decimal(parts[1]);
+          alert("Special multiplier set to ×"+parts[1]);
+        } else {
+          alert("Unknown admin command.");
+        }
+      }
+      $("adminInput").value="";
+      draw();
+    }
+
+    $("runCmd").onclick=runCmd;
+    load();
+    draw();
+    loop();
+  </script>
+</body>
+  </html>
+                
