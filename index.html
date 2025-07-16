@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Souls Incremental with Leaderboards</title>
+  <title>Souls Incremental with Leaderboards and Flags</title>
   
   <!-- decimal.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js" crossorigin="anonymous"></script>
@@ -92,6 +92,11 @@
       justify-content: space-between;
       font-family: monospace;
     }
+    ul.leaderboard li span:first-child {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
   </style>
 </head>
 <body>
@@ -164,7 +169,6 @@
   </div>
 
 <script>
-  // Your Firebase config here (замени на свой!)
   const firebaseConfig = {
     apiKey: "AIzaSyABitqvYDXuHinskeIGTmpdvOYL63QuuE0",
     authDomain: "soul-button-incremental.firebaseapp.com",
@@ -176,9 +180,30 @@
     measurementId: "G-VJE5NMZ7TZ"
   };
 
-  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
+
+  // Функция конвертации ISO кода страны в emoji флаг
+  // https://stackoverflow.com/questions/30411812/javascript-function-to-get-country-flag-emoji-by-iso-3166-1-alpha-2-code
+  function countryCodeToFlagEmoji(countryCode) {
+    if (!countryCode || countryCode.length !== 2) return '';
+    const codePoints = countryCode.toUpperCase().split('')
+      .map(char => 127397 + char.charCodeAt());
+    return String.fromCodePoint(...codePoints);
+  }
+
+  // Функция получения кода страны по имени
+  // Можно расширить этот словарь, либо использовать сторонний сервис
+  const countryNameToCode = {
+    "Russia": "RU",
+    "Poland": "PL",
+    "United States": "US",
+    "Germany": "DE",
+    "France": "FR",
+    "United Kingdom": "GB",
+    "Unknown": ""
+    // Добавь сюда нужные страны по мере необходимости
+  };
 
   const SUF=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","De","Ud","Dd","Td","Qd","Qn","Sxd","Spd","Ocd","Nod","Vg","UVg","DVg","TVg","QtV","QnV","SeV","SpG","OVG","NVG","TGN","UTG","DTG","TsTG","QtTG","QnTG","SsTG","SpTG","OcTG","NoTG","∞"];
 
@@ -216,14 +241,17 @@
   const $=id=>document.getElementById(id);
 
   let playerCountry = "Unknown";
+  let playerCountryCode = "";
 
   async function detectCountry() {
     try {
       const res = await fetch('https://ipapi.co/json/');
       const data = await res.json();
       playerCountry = data.country_name || "Unknown";
+      playerCountryCode = countryNameToCode[playerCountry] || "";
     } catch {
       playerCountry = "Unknown";
+      playerCountryCode = "";
     }
   }
 
@@ -262,9 +290,8 @@
   }
 
   function loop(){
-    // Souls + 5 per second + SPS bonus
-    let soulsGain = new Decimal(5).div(10); // 0.5 every 0.1s
-    soulsGain = soulsGain.plus(sps().div(10)); // SPS per 0.1s
+    let soulsGain = new Decimal(5).div(10); // 0.5 souls per 0.1s
+    soulsGain = soulsGain.plus(sps().div(10)); // add SPS portion per 0.1s
     st.souls = Decimal.min(MAX, st.souls.plus(soulsGain));
     draw();
     save();
@@ -322,69 +349,76 @@
   const leaderboardMultiplier = $("leaderboardMultiplier");
 
   async function updateLeaderboard(){
+    if(!playerCountry) return;
+
     // Сохраняем данные игрока в Firebase
-    const data = {
+    const userData = {
       souls: st.souls.toString(),
       sps: sps().toString(),
       multiplier: mult().toString(),
       country: playerCountry,
+      countryCode: playerCountryCode,
       timestamp: Date.now()
     };
 
-    // Читаем данные всех стран
-    const ref = db.ref('leaderboard/countries');
-    // Читаем текущие данные
-    ref.once('value', snapshot => {
-      let countries = snapshot.val() || {};
+    // Сохраняем данные игрока под своим уникальным ID (например, localStorage)
+    // чтобы не засорять базу одинаковыми игроками, используем уникальный id
+    let playerId = localStorage.getItem('playerId');
+    if(!playerId){
+      playerId = 'player_' + Math.random().toString(36).substr(2,9);
+      localStorage.setItem('playerId', playerId);
+    }
 
-      // Суммируем по странам SPS и множители:
-      if(!countries[playerCountry]){
-        countries[playerCountry] = { totalSPS: "0", totalMultiplier: "0" };
+    const playerRef = db.ref('players/' + playerId);
+    await playerRef.set(userData);
+
+    // Получаем всех игроков
+    const playersSnapshot = await db.ref('players').once('value');
+    const players = playersSnapshot.val() || {};
+
+    // Агрегируем данные по странам (суммируем SPS и multiplier)
+    const countryStats = {};
+
+    for(const key in players){
+      const p = players[key];
+      if(!p.country) continue;
+      if(!countryStats[p.country]){
+        countryStats[p.country] = {
+          totalSPS: new Decimal(0),
+          totalMultiplier: new Decimal(0),
+          countryCode: p.countryCode || ""
+        };
       }
+      countryStats[p.country].totalSPS = countryStats[p.country].totalSPS.plus(new Decimal(p.sps));
+      countryStats[p.country].totalMultiplier = countryStats[p.country].totalMultiplier.plus(new Decimal(p.multiplier));
+    }
 
-      // Обновляем текущую страну:
-      // Добавляем игрока к текущей стране:
-      // Важно: чтобы не накапливать слишком много (то есть суммировать всех игроков на стороне сервера), 
-      // здесь простой подход — просто обновить суммарные значения.
-      // Для корректной агрегации нужна серверная логика, но у нас нет серверного кода — так что просто записываем отдельно и потом выводим ТОП
+    // Преобразуем в массив и сортируем
+    const statsArr = Object.entries(countryStats).map(([country, data]) => ({
+      country,
+      totalSPS: data.totalSPS,
+      totalMultiplier: data.totalMultiplier,
+      countryCode: data.countryCode
+    }));
 
-      countries[playerCountry].totalSPS = (new Decimal(countries[playerCountry].totalSPS)).plus(new Decimal(data.sps)).toString();
-      countries[playerCountry].totalMultiplier = (new Decimal(countries[playerCountry].totalMultiplier)).plus(new Decimal(data.multiplier)).toString();
+    statsArr.sort((a,b) => b.totalSPS.minus(a.totalSPS).toNumber());
+    renderLeaderboard(leaderboardSPS, statsArr.slice(0,10), 'totalSPS');
 
-      // Записываем обратно (ограничим размер - оставим ТОП 20)
-      let entries = Object.entries(countries);
-      if(entries.length > 50) entries = entries.slice(0,50); // просто ограничение
-
-      const newData = Object.fromEntries(entries);
-
-      ref.set(newData);
-    });
-
-    // Загрузка и сортировка ТОП-10 стран по SPS и множителю
-    ref.once('value', snapshot => {
-      const countries = snapshot.val() || {};
-      const arr = Object.entries(countries).map(([country, vals]) => ({
-        country,
-        totalSPS: new Decimal(vals.totalSPS),
-        totalMultiplier: new Decimal(vals.totalMultiplier)
-      }));
-
-      arr.sort((a,b)=>b.totalSPS.minus(a.totalSPS).toNumber());
-      renderLeaderboard(leaderboardSPS, arr.slice(0,10), 'totalSPS');
-
-      arr.sort((a,b)=>b.totalMultiplier.minus(a.totalMultiplier).toNumber());
-      renderLeaderboard(leaderboardMultiplier, arr.slice(0,10), 'totalMultiplier');
-    });
+    statsArr.sort((a,b) => b.totalMultiplier.minus(a.totalMultiplier).toNumber());
+    renderLeaderboard(leaderboardMultiplier, statsArr.slice(0,10), 'totalMultiplier');
   }
 
   function renderLeaderboard(container, arr, key){
     container.innerHTML = "";
     arr.forEach((item,i)=>{
-      container.innerHTML += `<li><span>${i+1}. ${item.country}</span><span>${fmt(item[key])}</span></li>`;
+      const flag = countryCodeToFlagEmoji(item.countryCode);
+      container.innerHTML += `
+        <li>
+          <span>${i+1}. ${flag} ${item.country}</span>
+          <span>${fmt(item[key])}</span>
+        </li>`;
     });
   }
-
-  // Инициализация и запуск
 
   (async ()=>{
     await detectCountry();
@@ -396,4 +430,5 @@
 </script>
 
 </body>
-</html>
+  </html>
+  
