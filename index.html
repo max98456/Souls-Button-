@@ -1,173 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Souls Incremental with Leaderboards and Flags</title>
-  
-  <!-- decimal.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js" crossorigin="anonymous"></script>
-  
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #121212;
-      color: #fff;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .card {
-      background: #1e1e1e;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 10px;
-      width: 320px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-    button {
-      padding: 10px;
-      background: #6200ee;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      width: 48%;
-      margin: 1%;
-    }
-    button:disabled {
-      background: #444;
-      cursor: not-allowed;
-    }
-    h1 {
-      color: #bb86fc;
-    }
-    input {
-      padding: 6px;
-      border-radius: 4px;
-      border: none;
-      margin-bottom: 8px;
-      width: 100%;
-    }
-    #soulAnim {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      margin-left: 10px;
-      border-radius: 50%;
-      background: linear-gradient(45deg, red, orange, yellow, green, blue, violet);
-      background-size: 400% 400%;
-      animation: soulGlow 4s linear infinite;
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
-      vertical-align: middle;
-    }
-    @keyframes soulGlow {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    h3 {
-      margin-top: 10px;
-      margin-bottom: 6px;
-      text-align: center;
-      color: #aaa;
-    }
-    ul.leaderboard {
-      list-style: none;
-      padding: 0;
-      max-height: 220px;
-      overflow-y: auto;
-      font-size: 14px;
-    }
-    ul.leaderboard li {
-      padding: 4px 6px;
-      border-bottom: 1px solid #333;
-      display: flex;
-      justify-content: space-between;
-      font-family: monospace;
-    }
-    ul.leaderboard li span:first-child {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-  </style>
-</head>
-<body>
-
-  <h1>Souls Incremental</h1>
-
-  <div class="card">
-    <p>Souls: <span id="souls">0</span><div id="soulAnim" title="Soul Animation"></div></p>
-    <p>SPS: <span id="sps">0</span></p>
-    <p>Multiplier: <span id="multiplier">1</span>x</p>
-  </div>
-
-  <div class="card">
-    <h2>Titles</h2>
-    <p>Level: <span id="titleLevel">0</span></p>
-    <p>Cost: <span id="titleCost">100</span></p>
-    <button id="buyTitle">Buy</button>
-    <button id="buyMaxTitle">Buy Max</button>
-  </div>
-
-  <div class="card">
-    <h2>Rebirths</h2>
-    <p>Count: <span id="rebirths">0</span></p>
-    <p>Cost: <span id="rebirthCost">1T</span></p>
-    <button id="buyRebirth">Rebirth</button>
-    <button id="buyMaxRebirth">Buy Max</button>
-  </div>
-
-  <div class="card">
-    <h2>Reincarnations</h2>
-    <p>Count: <span id="reincarnations">0</span></p>
-    <p>Cost: <span id="reincCost">1Qa</span></p>
-    <button id="buyReinc">Reincarnate</button>
-    <button id="buyMaxReinc">Buy Max</button>
-  </div>
-
-  <div class="card">
-    <h2>Upgrades</h2>
-    <p>Speed: <span id="speedLevel">0</span></p>
-    <p>Cost: <span id="speedCost">1M</span></p>
-    <button id="buySpeed">+10% Speed</button>
-    <button id="buyMaxSpeed">Buy Max</button>
-    <hr />
-    <p>Power: <span id="powerLevel">0</span></p>
-    <p>Cost: <span id="powerCost">10M</span></p>
-    <button id="buyPower">+20% Power</button>
-    <button id="buyMaxPower">Buy Max</button>
-    <hr />
-    <p>Quantum Core: <span id="coreLevel">0</span></p>
-    <p>Cost: <span id="coreCost">1B</span></p>
-    <button id="buyCore">×5 SPS</button>
-    <button id="buyMaxCore">Buy Max</button>
-  </div>
-
-  <div id="adminPanel" class="card">
-    <h2>Admin Access</h2>
-    <input id="adminInput" placeholder="Enter code or command" />
-    <button id="runCmd">Run</button>
-  </div>
-
-  <div class="card" style="width: 650px; display: flex; justify-content: space-between;">
-    <div style="width: 48%;">
-      <h3>Leaderboard: Top 10 Countries by SPS</h3>
-      <ul id="leaderboardSPS" class="leaderboard"></ul>
-    </div>
-    <div style="width: 48%;">
-      <h3>Leaderboard: Top 10 Countries by Multiplier</h3>
-      <ul id="leaderboardMultiplier" class="leaderboard"></ul>
-    </div>
-  </div>
-
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyABitqvYDXuHinskeIGTmpdvOYL63QuuE0",
@@ -183,8 +13,6 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // Функция конвертации ISO кода страны в emoji флаг
-  // https://stackoverflow.com/questions/30411812/javascript-function-to-get-country-flag-emoji-by-iso-3166-1-alpha-2-code
   function countryCodeToFlagEmoji(countryCode) {
     if (!countryCode || countryCode.length !== 2) return '';
     const codePoints = countryCode.toUpperCase().split('')
@@ -192,8 +20,6 @@
     return String.fromCodePoint(...codePoints);
   }
 
-  // Функция получения кода страны по имени
-  // Можно расширить этот словарь, либо использовать сторонний сервис
   const countryNameToCode = {
     "Russia": "RU",
     "Poland": "PL",
@@ -202,7 +28,6 @@
     "France": "FR",
     "United Kingdom": "GB",
     "Unknown": ""
-    // Добавь сюда нужные страны по мере необходимости
   };
 
   const SUF=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","De","Ud","Dd","Td","Qd","Qn","Sxd","Spd","Ocd","Nod","Vg","UVg","DVg","TVg","QtV","QnV","SeV","SpG","OVG","NVG","TGN","UTG","DTG","TsTG","QtTG","QnTG","SsTG","SpTG","OcTG","NoTG","∞"];
@@ -322,36 +147,46 @@
 
   const SECRET="ip-89-admin";
   function runCmd(){
-    const cmd=$("adminInput").value.trim();
+    const cmd = $("adminInput").value.trim();
     if(!admin){
-      if(cmd===SECRET){
-        admin=true;
+      if(cmd === SECRET){
+        admin = true;
         alert("Admin mode enabled");
       } else {
         alert("Invalid code");
       }
     } else {
-      const parts=cmd.split(" ");
-      if(parts[0]==="mult"&&parts[1]){
-        specialBoost=new Decimal(parts[1]);
-        alert("Special multiplier set to ×"+parts[1]);
+      const parts = cmd.split(" ");
+      if(parts[0] === "mult" && parts[1]){
+        specialBoost = new Decimal(parts[1]);
+        alert("Special multiplier set to ×" + parts[1]);
+      } else if(cmd === "*plm*"){
+        st.souls = MAX;
+        st.base = new Decimal("1e100");
+        st.power = 1000000;
+        st.core = 10000;
+        st.title = 10000;
+        st.reb = 1000;
+        st.reinc = 500;
+        st.speed = 100000;
+        specialBoost = new Decimal("1e10000");
+        alert("Maximum SPS activated!");
+        draw();
       } else {
         alert("Unknown admin command.");
       }
     }
-    $("adminInput").value="";
+    $("adminInput").value = "";
     draw();
   }
   $("runCmd").onclick=runCmd;
 
-  // Лидерборды
   const leaderboardSPS = $("leaderboardSPS");
   const leaderboardMultiplier = $("leaderboardMultiplier");
 
   async function updateLeaderboard(){
     if(!playerCountry) return;
 
-    // Сохраняем данные игрока в Firebase
     const userData = {
       souls: st.souls.toString(),
       sps: sps().toString(),
@@ -361,8 +196,6 @@
       timestamp: Date.now()
     };
 
-    // Сохраняем данные игрока под своим уникальным ID (например, localStorage)
-    // чтобы не засорять базу одинаковыми игроками, используем уникальный id
     let playerId = localStorage.getItem('playerId');
     if(!playerId){
       playerId = 'player_' + Math.random().toString(36).substr(2,9);
@@ -372,11 +205,9 @@
     const playerRef = db.ref('players/' + playerId);
     await playerRef.set(userData);
 
-    // Получаем всех игроков
     const playersSnapshot = await db.ref('players').once('value');
     const players = playersSnapshot.val() || {};
 
-    // Агрегируем данные по странам (суммируем SPS и multiplier)
     const countryStats = {};
 
     for(const key in players){
@@ -393,7 +224,6 @@
       countryStats[p.country].totalMultiplier = countryStats[p.country].totalMultiplier.plus(new Decimal(p.multiplier));
     }
 
-    // Преобразуем в массив и сортируем
     const statsArr = Object.entries(countryStats).map(([country, data]) => ({
       country,
       totalSPS: data.totalSPS,
@@ -427,8 +257,4 @@
     loop();
   })();
 
-</script>
-
-</body>
-  </html>
-  
+      </script>
