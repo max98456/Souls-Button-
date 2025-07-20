@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Infinite RNG</title>
+  <title>Infinite RNG Admin</title>
   <style>
     body {
       font-family: sans-serif;
@@ -11,7 +11,7 @@
       text-align: center;
       padding: 20px;
     }
-    .roll-button {
+    .roll-button, .admin-button {
       padding: 15px 30px;
       font-size: 20px;
       border-radius: 10px;
@@ -19,9 +19,7 @@
       background: #444;
       color: white;
       cursor: pointer;
-    }
-    .roll-button:hover {
-      background: #666;
+      margin: 5px;
     }
     .result {
       margin-top: 20px;
@@ -38,18 +36,36 @@
     .aura {
       margin: 5px;
     }
+    #adminPanel {
+      margin-top: 20px;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>Sol's RNG ∞</h1>
+  <h1>Sol's RNG ∞ + Admin</h1>
   <button class="roll-button" onclick="rollAura()">Roll Aura</button>
+  <button class="roll-button" onclick="toggleAutoRoll()">Auto Roll: <span id="autoState">OFF</span></button>
   <div class="result" id="result">Click to roll...</div>
+
   <h2>Inventory</h2>
   <div class="inventory" id="inventory"></div>
+
+  <h3>Admin Code</h3>
+  <input type="text" id="adminCodeInput" placeholder="Enter admin code">
+  <button class="admin-button" onclick="activateAdmin()">Activate</button>
+
+  <div id="adminPanel">
+    <h3>Admin Panel</h3>
+    <input type="text" id="adminCommand" placeholder="Enter command">
+    <button class="admin-button" onclick="runAdminCommand()">Run</button>
+  </div>
 
   <script>
     const MAX_AURA = 9939383833883838n;
     let inventory = {};
+    let autoRolling = false;
+    let autoRollInterval = null;
 
     // Загрузка
     if (localStorage.getItem("rngInventory")) {
@@ -78,6 +94,7 @@
       const resultDiv = document.getElementById("result");
       resultDiv.textContent = "Rolling...";
       resultDiv.style.color = "#fff";
+
       setTimeout(() => {
         let roll = Math.random() * 100;
         let index = 0n;
@@ -85,11 +102,10 @@
         for (let i = 0n; i <= MAX_AURA; i++) {
           const aura = getAuraData(i);
           sum += aura.chance;
-          if (roll <= sum) {
+          if (roll <= sum || aura.chance < 0.0000001) {
             index = i;
             break;
           }
-          if (aura.chance < 0.0000001) break;
         }
 
         const aura = getAuraData(index);
@@ -113,7 +129,7 @@
 
         save();
         renderInventory();
-      }, 300); // анимация задержки
+      }, 100); // анимация
     }
 
     function save() {
@@ -133,8 +149,41 @@
       });
     }
 
+    function activateAdmin() {
+      const code = document.getElementById("adminCodeInput").value.trim();
+      if (code === "bbhh") {
+        document.getElementById("adminPanel").style.display = "block";
+        alert("Admin mode activated!");
+      } else {
+        alert("Invalid code.");
+      }
+    }
+
+    function runAdminCommand() {
+      const command = document.getElementById("adminCommand").value.trim().toUpperCase();
+      if (command === "SAS") {
+        const maxID = MAX_AURA.toString();
+        inventory[maxID] = (inventory[maxID] || 0) + 1;
+        save();
+        renderInventory();
+        document.getElementById("result").textContent = `Admin gave you: Aura #${MAX_AURA}`;
+        document.getElementById("result").style.color = "#ffd700";
+      } else {
+        alert("Unknown command.");
+      }
+    }
+
+    function toggleAutoRoll() {
+      autoRolling = !autoRolling;
+      document.getElementById("autoState").textContent = autoRolling ? "ON" : "OFF";
+      if (autoRolling) {
+        autoRollInterval = setInterval(rollAura, 100);
+      } else {
+        clearInterval(autoRollInterval);
+      }
+    }
+
     renderInventory();
   </script>
 </body>
-  </html>
-  
+</html>
