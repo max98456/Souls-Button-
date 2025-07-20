@@ -32,38 +32,68 @@
 
   const SUF=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No","De","Ud","Dd","Td","Qd","Qn","Sxd","Spd","Ocd","Nod","Vg","UVg","DVg","TVg","QtV","QnV","SeV","SpG","OVG","NVG","TGN","UTG","DTG","TsTG","QtTG","QnTG","SsTG","SpTG","OcTG","NoTG","∞"];
 
-  function fmt(n){
-    if(n.lt(1000))return n.toFixed(0);
-    let t=Math.floor(n.log(1000));
-    let suf=SUF[t]||`e${n.toExponential(2)}`;
-    return n.div(Decimal.pow(1000,t)).toFixed(2)+suf;
+  function fmt(n) {
+    try {
+      if (!n || !n.lt || !n.div) {
+        console.error("Invalid number in fmt:", n);
+        return "0";
+      }
+      if (n.lt(1000)) return n.toFixed(0);
+      let t = Math.floor(n.log(1000));
+      let suf = SUF[t] || `e${n.toExponential(2)}`;
+      return n.div(Decimal.pow(1000, t)).toFixed(2) + suf;
+    } catch (e) {
+      console.error("Error in fmt:", e, "Input:", n);
+      return "0";
+    }
   }
 
-  const MAX=new Decimal("1e999999999999999999999999999999999999999999999999999999999");
-  const saveKey="souls_v∞";
+  const MAX = new Decimal("1e999999999999999999999999999999999999999999999999999999999");
+  const saveKey = "souls_v∞";
 
-  let st={
-    souls:new Decimal(0),
-    base:new Decimal(2),
-    title:0,
-    reb:0,
-    reinc:0,
-    speed:0,
-    power:0,
-    core:0
+  let st = {
+    souls: new Decimal(0),
+    base: new Decimal(2),
+    title: 0,
+    reb: 0,
+    reinc: 0,
+    speed: 0,
+    power: 0,
+    core: 0
   };
-  let specialBoost=new Decimal(1);
-  let admin=false;
-  const cTitle=l=>Decimal.pow(2.5,l).mul(100);
-  const cReb=r=>Decimal.pow(10,r).mul(1e15);
-  const cReinc=r=>Decimal.pow(25,r).mul(1e24);
-  const cSpeed=l=>Decimal.pow(5,l).mul(1e6);
-  const cPower=l=>Decimal.pow(7,l).mul(1e7);
-  const cCore=l=>Decimal.pow(9,l).mul(1e9);
-  const mult=()=>Decimal.pow(2,st.title).mul(Decimal.pow(999,st.reb)).mul(Decimal.pow(3000,st.reinc)).mul(specialBoost);
-  const sps=()=>st.base.mul(Decimal.pow(1.1,st.power)).mul(Decimal.pow(5,st.core)).mul(mult());
-  const tickMs=()=>1000/Decimal.pow(1.1,st.speed).toNumber();
-  const $=id=>document.getElementById(id);
+  let specialBoost = new Decimal(1);
+  let admin = false;
+  const cTitle = l => Decimal.pow(2.5, l).mul(100);
+  const cReb = r => Decimal.pow(10, r).mul(1e15);
+  const cReinc = r => Decimal.pow(25, r).mul(1e24);
+  const cSpeed = l => Decimal.pow(5, l).mul(1e6);
+  const cPower = l => Decimal.pow(7, l).mul(1e7);
+  const cCore = l => Decimal.pow(9, l).mul(1e9);
+  const mult = () => {
+    try {
+      return Decimal.pow(2, st.title).mul(Decimal.pow(999, st.reb)).mul(Decimal.pow(3000, st.reinc)).mul(specialBoost);
+    } catch (e) {
+      console.error("Error in mult:", e);
+      return new Decimal(1);
+    }
+  };
+  const sps = () => {
+    try {
+      return st.base.mul(Decimal.pow(1.1, st.power)).mul(Decimal.pow(5, st.core)).mul(mult());
+    } catch (e) {
+      console.error("Error in sps:", e);
+      return new Decimal(0);
+    }
+  };
+  const tickMs = () => {
+    try {
+      return 1000 / Decimal.pow(1.1, st.speed).toNumber();
+    } catch (e) {
+      console.error("Error in tickMs:", e);
+      return 1000;
+    }
+  };
+  const $ = id => document.getElementById(id);
 
   let playerCountry = "Unknown";
   let playerCountryCode = "";
@@ -74,187 +104,224 @@
       const data = await res.json();
       playerCountry = data.country_name || "Unknown";
       playerCountryCode = countryNameToCode[playerCountry] || "";
-    } catch {
+    } catch (e) {
+      console.error("Error in detectCountry:", e);
       playerCountry = "Unknown";
       playerCountryCode = "";
     }
   }
 
-  function draw(){
-    $("souls").textContent=fmt(st.souls);
-    $("sps").textContent=fmt(sps());
-    $("multiplier").textContent=fmt(mult());
-    $("titleLevel").textContent=st.title;
-    $("titleCost").textContent=fmt(cTitle(st.title));
-    $("rebirths").textContent=st.reb;
-    $("rebirthCost").textContent=fmt(cReb(st.reb));
-    $("reincarnations").textContent=st.reinc;
-    $("reincCost").textContent=fmt(cReinc(st.reinc));
-    $("speedLevel").textContent=st.speed;
-    $("speedCost").textContent=fmt(cSpeed(st.speed));
-    $("powerLevel").textContent=st.power;
-    $("powerCost").textContent=fmt(cPower(st.power));
-    $("coreLevel").textContent=st.core;
-    $("coreCost").textContent=fmt(cCore(st.core));
-  }
-
-  function save(){
-    const d={};
-    for(let k in st)d[k]=st[k].toString();
-    localStorage.setItem(saveKey,JSON.stringify(d));
-  }
-
-  function load(){
-    const d=localStorage.getItem(saveKey);
-    if(d){
-      try{
-        const p=JSON.parse(d);
-        for(let k in p) st[k]=new Decimal(p[k]);
-      }catch(e){console.error("bad save");}
+  function draw() {
+    try {
+      console.log("Drawing UI with state:", st);
+      $("souls").textContent = fmt(st.souls);
+      $("sps").textContent = fmt(sps());
+      $("multiplier").textContent = fmt(mult());
+      $("titleLevel").textContent = st.title;
+      $("titleCost").textContent = fmt(cTitle(st.title));
+      $("rebirths").textContent = st.reb;
+      $("rebirthCost").textContent = fmt(cReb(st.reb));
+      $("reincarnations").textContent = st.reinc;
+      $("reincCost").textContent = fmt(cReinc(st.reinc));
+      $("speedLevel").textContent = st.speed;
+      $("speedCost").textContent = fmt(cSpeed(st.speed));
+      $("powerLevel").textContent = st.power;
+      $("powerCost").textContent = fmt(cPower(st.power));
+      $("coreLevel").textContent = st.core;
+      $("coreCost").textContent = fmt(cCore(st.core));
+    } catch (e) {
+      console.error("Error in draw:", e);
     }
   }
 
-  function loop(){
-    let soulsGain = new Decimal(5).div(10); // 0.5 souls per 0.1s
-    soulsGain = soulsGain.plus(sps().div(10)); // add SPS portion per 0.1s
-    st.souls = Decimal.min(MAX, st.souls.plus(soulsGain));
-    draw();
-    save();
-    updateLeaderboard();
-    setTimeout(loop,tickMs());
-  }
-
-  function buyMax(costFunc, key){
-    while(st.souls.gte(costFunc(st[key]))){
-      st.souls = st.souls.minus(costFunc(st[key]));
-      st[key]++;
+  function save() {
+    try {
+      const d = {};
+      for (let k in st) d[k] = st[k].toString();
+      localStorage.setItem(saveKey, JSON.stringify(d));
+    } catch (e) {
+      console.error("Error in save:", e);
     }
-    draw();
   }
 
-  $("buyTitle").onclick=()=>{ if(st.souls.gte(cTitle(st.title))){ st.souls=st.souls.minus(cTitle(st.title)); st.title++; draw(); }};
-  $("buyMaxTitle").onclick=()=>buyMax(cTitle,"title");
-  $("buyRebirth").onclick=()=>{ if(st.souls.gte(cReb(st.reb))){ st.souls=new Decimal(0); st.reb++; st.title=0; draw(); }};
-  $("buyMaxRebirth").onclick=()=>{ while(st.souls.gte(cReb(st.reb))){ st.souls=new Decimal(0); st.reb++; st.title=0; } draw(); };
-  $("buyReinc").onclick=()=>{ if(st.souls.gte(cReinc(st.reinc))){ st.souls=new Decimal(0); st.reinc++; st.reb=0; st.title=0; draw(); }};
-  $("buyMaxReinc").onclick=()=>{ while(st.souls.gte(cReinc(st.reinc))){ st.souls=new Decimal(0); st.reinc++; st.reb=0; st.title=0; } draw(); };
-  $("buySpeed").onclick=()=>{ if(st.souls.gte(cSpeed(st.speed))){ st.souls=st.souls.minus(cSpeed(st.speed)); st.speed++; draw(); }};
-  $("buyMaxSpeed").onclick=()=>buyMax(cSpeed,"speed");
-  $("buyPower").onclick=()=>{ if(st.souls.gte(cPower(st.power))){ st.souls=st.souls.minus(cPower(st.power)); st.power++; draw(); }};
-  $("buyMaxPower").onclick=()=>buyMax(cPower,"power");
-  $("buyCore").onclick=()=>{ if(st.souls.gte(cCore(st.core))){ st.souls=st.souls.minus(cCore(st.core)); st.core++; draw(); }};
-  $("buyMaxCore").onclick=()=>buyMax(cCore,"core");
-
-  const SECRET="ip-89-admin";
-  function runCmd(){
-    const cmd = $("adminInput").value.trim();
-    if(!admin){
-      if(cmd === SECRET){
-        admin = true;
-        alert("Admin mode enabled");
-      } else {
-        alert("Invalid code");
+  function load() {
+    try {
+      const d = localStorage.getItem(saveKey);
+      if (d) {
+        const p = JSON.parse(d);
+        for (let k in p) st[k] = new Decimal(p[k]);
       }
-    } else {
-      const parts = cmd.split(" ");
-      if(parts[0] === "mult" && parts[1]){
-        specialBoost = new Decimal(parts[1]);
-        alert("Special multiplier set to ×" + parts[1]);
-      } else if(cmd === "*plm*"){
-        st.souls = MAX;
-        st.base = new Decimal("1e100");
-        st.power = 1000000;
-        st.core = 10000;
-        st.title = 10000;
-        st.reb = 1000;
-        st.reinc = 500;
-        st.speed = 100000;
-        specialBoost = new Decimal("1e10000");
-        alert("Maximum SPS activated!");
-        draw();
-      } else {
-        alert("Unknown admin command.");
-      }
+    } catch (e) {
+      console.error("Error in load:", e);
     }
-    $("adminInput").value = "";
-    draw();
   }
-  $("runCmd").onclick=runCmd;
+
+  function loop() {
+    try {
+      let soulsGain = new Decimal(5).div(10); // 0.5 souls per 0.1s
+      soulsGain = soulsGain.plus(sps().div(10)); // add SPS portion per 0.1s
+      st.souls = Decimal.min(MAX, st.souls.plus(soulsGain));
+      draw();
+      save();
+      updateLeaderboard();
+      setTimeout(loop, tickMs());
+    } catch (e) {
+      console.error("Error in loop:", e);
+      setTimeout(loop, 1000); // Fallback to 1s tick
+    }
+  }
+
+  function buyMax(costFunc, key) {
+    try {
+      while (st.souls.gte(costFunc(st[key]))) {
+        st.souls = st.souls.minus(costFunc(st[key]));
+        st[key]++;
+      }
+      draw();
+    } catch (e) {
+      console.error("Error in buyMax:", e);
+    }
+  }
+
+  $("buyTitle").onclick = () => { if (st.souls.gte(cTitle(st.title))) { st.souls = st.souls.minus(cTitle(st.title)); st.title++; draw(); }};
+  $("buyMaxTitle").onclick = () => buyMax(cTitle, "title");
+  $("buyRebirth").onclick = () => { if (st.souls.gte(cReb(st.reb))) { st.souls = new Decimal(0); st.reb++; st.title = 0; draw(); }};
+  $("buyMaxRebirth").onclick = () => { while (st.souls.gte(cReb(st.reb))) { st.souls = new Decimal(0); st.reb++; st.title = 0; } draw(); };
+  $("buyReinc").onclick = () => { if (st.souls.gte(cReinc(st.reinc))) { st.souls = new Decimal(0); st.reinc++; st.reb = 0; st.title = 0; draw(); }};
+  $("buyMaxReinc").onclick = () => { while (st.souls.gte(cReinc(st.reinc))) { st.souls = new Decimal(0); st.reinc++; st.reb = 0; st.title = 0; } draw(); };
+  $("buySpeed").onclick = () => { if (st.souls.gte(cSpeed(st.speed))) { st.souls = st.souls.minus(cSpeed(st.speed)); st.speed++; draw(); }};
+  $("buyMaxSpeed").onclick = () => buyMax(cSpeed, "speed");
+  $("buyPower").onclick = () => { if (st.souls.gte(cPower(st.power))) { st.souls = st.souls.minus(cPower(st.power)); st.power++; draw(); }};
+  $("buyMaxPower").onclick = () => buyMax(cPower, "power");
+  $("buyCore").onclick = () => { if (st.souls.gte(cCore(st.core))) { st.souls = st.souls.minus(cCore(st.core)); st.core++; draw(); }};
+  $("buyMaxCore").onclick = () => buyMax(cCore, "core");
+
+  const SECRET = "ip-89-admin";
+  function runCmd() {
+    try {
+      const cmd = $("adminInput").value.trim();
+      if (!admin) {
+        if (cmd === SECRET) {
+          admin = true;
+          alert("Admin mode enabled");
+        } else {
+          alert("Invalid code");
+        }
+      } else {
+        const parts = cmd.split(" ");
+        if (parts[0] === "mult" && parts[1]) {
+          specialBoost = new Decimal(parts[1]);
+          alert("Special multiplier set to ×" + parts[1]);
+        } else if (cmd === "*plm*") {
+          st.souls = MAX;
+          st.base = MAX;
+          st.power = 1000000;
+          st.core = 100000;
+          st.title = 100000;
+          st.reb = 10000;
+          st.reinc = 1000;
+          st.speed = 1000000;
+          specialBoost = MAX;
+          alert("Maximum SPS activated!");
+          draw();
+        } else {
+          alert("Unknown admin command.");
+        }
+      }
+      $("adminInput").value = "";
+      draw();
+    } catch (e) {
+      console.error("Error in runCmd:", e);
+      alert("Error executing command: " + e.message);
+    }
+  }
+  $("runCmd").onclick = runCmd;
 
   const leaderboardSPS = $("leaderboardSPS");
   const leaderboardMultiplier = $("leaderboardMultiplier");
 
-  async function updateLeaderboard(){
-    if(!playerCountry) return;
+  async function updateLeaderboard() {
+    try {
+      if (!playerCountry) return;
 
-    const userData = {
-      souls: st.souls.toString(),
-      sps: sps().toString(),
-      multiplier: mult().toString(),
-      country: playerCountry,
-      countryCode: playerCountryCode,
-      timestamp: Date.now()
-    };
+      const userData = {
+        souls: st.souls.toString(),
+        sps: sps().toString(),
+        multiplier: mult().toString(),
+        country: playerCountry,
+        countryCode: playerCountryCode,
+        timestamp: Date.now()
+      };
 
-    let playerId = localStorage.getItem('playerId');
-    if(!playerId){
-      playerId = 'player_' + Math.random().toString(36).substr(2,9);
-      localStorage.setItem('playerId', playerId);
-    }
-
-    const playerRef = db.ref('players/' + playerId);
-    await playerRef.set(userData);
-
-    const playersSnapshot = await db.ref('players').once('value');
-    const players = playersSnapshot.val() || {};
-
-    const countryStats = {};
-
-    for(const key in players){
-      const p = players[key];
-      if(!p.country) continue;
-      if(!countryStats[p.country]){
-        countryStats[p.country] = {
-          totalSPS: new Decimal(0),
-          totalMultiplier: new Decimal(0),
-          countryCode: p.countryCode || ""
-        };
+      let playerId = localStorage.getItem('playerId');
+      if (!playerId) {
+        playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('playerId', playerId);
       }
-      countryStats[p.country].totalSPS = countryStats[p.country].totalSPS.plus(new Decimal(p.sps));
-      countryStats[p.country].totalMultiplier = countryStats[p.country].totalMultiplier.plus(new Decimal(p.multiplier));
+
+      const playerRef = db.ref('players/' + playerId);
+      await playerRef.set(userData);
+
+      const playersSnapshot = await db.ref('players').once('value');
+      const players = playersSnapshot.val() || {};
+
+      const countryStats = {};
+
+      for (const key in players) {
+        const p = players[key];
+        if (!p.country) continue;
+        if (!countryStats[p.country]) {
+          countryStats[p.country] = {
+            totalSPS: new Decimal(0),
+            totalMultiplier: new Decimal(0),
+            countryCode: p.countryCode || ""
+          };
+        }
+        countryStats[p.country].totalSPS = countryStats[p.country].totalSPS.plus(new Decimal(p.sps));
+        countryStats[p.country].totalMultiplier = countryStats[p.country].totalMultiplier.plus(new Decimal(p.multiplier));
+      }
+
+      const statsArr = Object.entries(countryStats).map(([country, data]) => ({
+        country,
+        totalSPS: data.totalSPS,
+        totalMultiplier: data.totalMultiplier,
+        countryCode: data.countryCode
+      }));
+
+      statsArr.sort((a, b) => b.totalSPS.minus(a.totalSPS).toNumber());
+      renderLeaderboard(leaderboardSPS, statsArr.slice(0, 10), 'totalSPS');
+
+      statsArr.sort((a, b) => b.totalMultiplier.minus(a.totalMultiplier).toNumber());
+      renderLeaderboard(leaderboardMultiplier, statsArr.slice(0, 10), 'totalMultiplier');
+    } catch (e) {
+      console.error("Error in updateLeaderboard:", e);
     }
-
-    const statsArr = Object.entries(countryStats).map(([country, data]) => ({
-      country,
-      totalSPS: data.totalSPS,
-      totalMultiplier: data.totalMultiplier,
-      countryCode: data.countryCode
-    }));
-
-    statsArr.sort((a,b) => b.totalSPS.minus(a.totalSPS).toNumber());
-    renderLeaderboard(leaderboardSPS, statsArr.slice(0,10), 'totalSPS');
-
-    statsArr.sort((a,b) => b.totalMultiplier.minus(a.totalMultiplier).toNumber());
-    renderLeaderboard(leaderboardMultiplier, statsArr.slice(0,10), 'totalMultiplier');
   }
 
-  function renderLeaderboard(container, arr, key){
-    container.innerHTML = "";
-    arr.forEach((item,i)=>{
-      const flag = countryCodeToFlagEmoji(item.countryCode);
-      container.innerHTML += `
-        <li>
-          <span>${i+1}. ${flag} ${item.country}</span>
-          <span>${fmt(item[key])}</span>
-        </li>`;
-    });
+  function renderLeaderboard(container, arr, key) {
+    try {
+      container.innerHTML = "";
+      arr.forEach((item, i) => {
+        const flag = countryCodeToFlagEmoji(item.countryCode);
+        container.innerHTML += `
+          <li>
+            <span>${i + 1}. ${flag} ${item.country}</span>
+            <span>${fmt(item[key])}</span>
+          </li>`;
+      });
+    } catch (e) {
+      console.error("Error in renderLeaderboard:", e);
+    }
   }
 
-  (async ()=>{
-    await detectCountry();
-    load();
-    draw();
-    loop();
+  (async () => {
+    try {
+      await detectCountry();
+      load();
+      draw();
+      loop();
+    } catch (e) {
+      console.error("Error in initialization:", e);
+    }
   })();
-
-      </script>
+    </script>
